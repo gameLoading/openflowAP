@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/kkyoon/openwrt-iptime/openwrt/staging_dir/target-mipsel_24kc_musl/usr/include/",
+                "/home/kkyoon/openwrt-iptime/openwrt/staging_dir/target-mipsel_24kc_musl/usr/include/"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
