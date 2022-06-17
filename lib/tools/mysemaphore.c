@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
-#include "semaphore.h"
+#include "tools/mysemaphore.h"
 
 union semun { int val; }sem1;
 

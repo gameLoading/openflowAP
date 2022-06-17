@@ -1,1 +1,0 @@
-int setTxPower(char *ifname, int txpower);

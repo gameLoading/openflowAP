@@ -13,12 +13,12 @@
 
 #include <unistd.h>
 #include <string.h>
-#include "wireless/myubus.h"
+#include "openwrt/myubus.h"
 #include <syslog.h>
 
 #include <libubox/blobmsg_json.h>
-#include "libubus.h"
-#include "semaphore.h"
+#include <libubus.h>
+#include "tools/mysemaphore.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,7 +110,7 @@ static void receive_call_result_data(struct ubus_request *req, int type, struct 
 
 	char* str = blobmsg_format_json(msg, true);
 	openlog("ofproto.c", LOG_CONS, LOG_USER);
-	syslog(LOG_INFO, " test result : %s\n", str);
+	// syslog(LOG_INFO, " test result : %s\n", str);
 	closelog();
     strncpy(result, str, MAX_JSON_SIZE-1);
     result[MAX_JSON_SIZE-1] = '\0';
@@ -191,11 +191,11 @@ static int ubus_cli_call(struct ubus_context *ctx, int argc, char **argv)
 		closelog();
 
 		openlog("ofproto.c", LOG_CONS, LOG_USER);
-		syslog(LOG_INFO, " blobmsg_add_json_from_string(&b, argv[2]); call\n");
+		// syslog(LOG_INFO, " blobmsg_add_json_from_string(&b, argv[2]); call\n");
 		closelog();
 
 		openlog("ofproto.c", LOG_CONS, LOG_USER);
-		syslog(LOG_INFO, " %s parse try\n", argv[2]);
+		// syslog(LOG_INFO, " %s parse try\n", argv[2]);
 		closelog();
 		if (!blobmsg_add_json_from_string(&b, argv[2])){
 			openlog("ofproto.c", LOG_CONS, LOG_USER);
@@ -217,7 +217,7 @@ static int ubus_cli_call(struct ubus_context *ctx, int argc, char **argv)
 
 	
 	openlog("ofproto.c", LOG_CONS, LOG_USER);
-	syslog(LOG_INFO, " ubus_invoke(ctx, id, argv[1], b.head, receive_call_result_data, NULL, timeout * 1000) called\n");
+	// syslog(LOG_INFO, " ubus_invoke(ctx, id, argv[1], b.head, receive_call_result_data, NULL, timeout * 1000) called\n");
 	closelog();
 	ret = ubus_invoke(ctx, id, argv[1], b.head, receive_call_result_data, NULL, timeout * 1000);
 	blob_buf_free(&b);

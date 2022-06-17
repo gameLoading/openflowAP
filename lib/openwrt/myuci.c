@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "uci.h"
-#include "wireless/myuci.h"
+#include "openwrt/myuci.h"
 
 #define MAX_ARGS	4 /* max command line arguments for batch mode */
 
