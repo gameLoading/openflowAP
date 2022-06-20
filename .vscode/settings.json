@@ -43,7 +43,14 @@
         "in.h": "c",
         "types.h": "c",
         "socket.h": "c",
-        "myunixsocket.h": "c"
+        "myunixsocket.h": "c",
+        "cstdint": "cpp",
+        "tuple": "cpp",
+        "iostream": "cpp",
+        "list": "cpp",
+        "string": "cpp",
+        "associative_base": "cpp",
+        "stack": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

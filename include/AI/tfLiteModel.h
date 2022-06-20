@@ -13,7 +13,9 @@
 #include "tensorflow/lite/kernels/register.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/interpreter_builder.h"
-#define MODELNAME "/tmp/model/test_double_model.tflite"
+
+// #define MODELNAME "/tmp/model/test_double_model.tflite"
+#define MODELNAME "/tmp/model/openWRT_tflite_model.tflite"
 
 using namespace std;
 class hTrafficDicisionModel{
@@ -30,8 +32,8 @@ public:
   }
   int initAIModel(const std::string modelPath, const std::string ifName);
   void printModelInOutInfo(void);
-  int makeInputData(tuple<float, float, float, float, float, float> *buffer);
-  int setInputData(tuple<float, float, float, float, float, float> data);
-  int getOutputData(void);
+  int makeInputData(float *buffer);
+  int setInputData(float *arr);
+  float getOutputData(void);
   void invoke(void);
 };

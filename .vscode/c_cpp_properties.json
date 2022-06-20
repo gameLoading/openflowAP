@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/kkyoon/openwrt-iptime/openwrt/staging_dir/target-mipsel_24kc_musl/usr/include/",
-                "/home/kkyoon/openwrt-iptime/openwrt/staging_dir/target-mipsel_24kc_musl/usr/include/"
+                "/home/kkyoon/openwrt-raspberryPi4/staging_dir/target-aarch64_cortex-a72_musl/usr/include/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

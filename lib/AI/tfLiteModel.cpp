@@ -16,8 +16,10 @@
 #include "tensorflow/lite/kernels/register.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/interpreter_builder.h"
+#include "tensorflow/lite/c/c_api_internal.h"
 
 int hTrafficDicisionModel::initAIModel(const std::string modelPath, const std::string ifName){
+    cout << "model uploading... " << modelPath << endl;
     this->model = tflite::FlatBufferModel::BuildFromFile(modelPath.c_str());
     this->ifName = ifName;
 
@@ -36,6 +38,7 @@ int hTrafficDicisionModel::initAIModel(const std::string modelPath, const std::s
     }
 
     status = this->interpreter->AllocateTensors();
+    // this->interpreter->SetInputs()
     if (status != kTfLiteOk){
       printf("allocate tensors fail\n");
       return -1;
@@ -43,6 +46,7 @@ int hTrafficDicisionModel::initAIModel(const std::string modelPath, const std::s
        printf("allocate tensors success code : %d\n", status);
     }
     
+    // this->interpreter
     return 0;
 }
 
@@ -81,7 +85,7 @@ void hTrafficDicisionModel::collectRawData(
     }
 }
 
-int hTrafficDicisionModel::makeInputData(tuple<float, float, float, float, float, float> *buffer){
+int hTrafficDicisionModel::makeInputData(float *buffer){
     // buffer->clear();
     map<string, tuple<uint32_t, uint32_t>> map;
     collectRawData(&map);
@@ -105,36 +109,55 @@ int hTrafficDicisionModel::makeInputData(tuple<float, float, float, float, float
       // cout << iter.first.c_str() << " / " << get<0>(iter.second) << endl;
     }
 
-    cout << "tx_bytes : ";
-    printVector(tx_bytes);
-    cout << "bytes_max : " << max_v<uint32_t>(tx_bytes) << endl;
-    cout << "bytes_min : " << min_v<uint32_t>(tx_bytes) << endl;
-    cout << "bytes_mean : " << mean_v<uint32_t>(tx_bytes) << endl;
-    cout << "tx_packets : ";
-    printVector(tx_packets);
-    cout << "packets_max : " << max_v<uint32_t>(tx_packets) << endl;
-    cout << "packets_min : " << min_v<uint32_t>(tx_packets) << endl;
-    cout << "packets_mean : " << mean_v<uint32_t>(tx_packets) << endl;
+    float bytes_max = max_v<uint32_t>(tx_bytes);
+    float bytes_min = min_v<uint32_t>(tx_bytes);
+    float bytes_mean =  mean_v<uint32_t>(tx_bytes);
+    float packets_max = max_v<uint32_t>(tx_packets);
+    float packets_min =  min_v<uint32_t>(tx_packets);
+    float packets_mean = mean_v<uint32_t>(tx_packets);
+
+    // cout << "tx_bytes : ";
+    // printVector(tx_bytes);
+    printf("%-15s : %15s\n","bytes_min", to_string((unsigned int)bytes_min).c_str());
+    printf("%-15s : %15s\n","bytes_mean", to_string((unsigned int)bytes_mean).c_str());
+    printf("%-15s : %15s\n","bytes_max", to_string((unsigned int)bytes_max).c_str());
+    printf("%-15s : %15s\n","packets_min", to_string((unsigned int)packets_min).c_str());
+    printf("%-15s : %15s\n","packets_mean", to_string((unsigned int)packets_mean).c_str());
+    printf("%-15s : %15s\n","packets_max", to_string((unsigned int)packets_max).c_str());
+
+    float arr[6] = {bytes_min, bytes_mean, bytes_max, packets_min, packets_mean, packets_max};
+    memcpy(buffer, arr, sizeof(float)*6);
 
     this->prevData.clear();
     this->prevData.insert(map.begin(), map.end());
     return 0;
 }
 
-int hTrafficDicisionModel::setInputData(tuple<float, float, float, float, float, float> data){
+int hTrafficDicisionModel::setInputData(float *arr){
     if (this->interpreter == nullptr) {
       printLine();
       cout << "interpreter is null" << endl;
       return -1;
     }
-    auto* input = this->interpreter->typed_input_tensor<int64_t>(0);
-
-    if (!input){
-      printf("fail to get input tensor\n");
+    // TfLiteTensor input = this->interpreter->get
+    auto* input_1 = this->interpreter->typed_input_tensor<float>(0);
+    
+    if (!input_1){
+      printf("fail to get input 1 tensor\n");
       return -1;
     }
-    // Dummy input for testing
-    *input = 2;
+    memset(input_1, 0, sizeof(float)*6);
+
+    /*for scaling*/
+    arr[0] /= 9765815;
+    arr[1] /= 28546629;
+    arr[2] /= 56912189;
+    arr[3] /= 4417;
+    arr[4] /= 12463;
+    arr[5] /= 24776;
+    cout << "input: " << printArray(arr, 6) << endl;
+    memcpy(input_1, arr, sizeof(float)*6);
+
     return 0;
 }
 
@@ -147,7 +170,7 @@ void hTrafficDicisionModel::invoke(void){
     this->interpreter->Invoke();
 }
 
-int hTrafficDicisionModel::getOutputData(void){
+float hTrafficDicisionModel::getOutputData(void){
     if (this->interpreter == nullptr) {
       printLine();
       cout << "interpreter is null" << endl;
@@ -160,8 +183,8 @@ int hTrafficDicisionModel::getOutputData(void){
       return -1;
     }
 
-    printf("Result is: %f\n", *output);
-    return 0;
+    cout << "Result is: " << *output << endl;
+    return *output;
 }
 
 void hTrafficDicisionModel::printModelInOutInfo(void){
@@ -170,15 +193,27 @@ void hTrafficDicisionModel::printModelInOutInfo(void){
       cout << "interpreter is null" << endl;
       return;
     }
+
+    cout << "[Model Total Info]" << endl;
+    cout << "tensors size : " << this->interpreter->tensors_size() << endl;
+    cout << "nodes size : " << this->interpreter->nodes_size() << endl;
+    cout << "inputs size : " << this->interpreter->inputs().size() << endl;
+    cout << "outputs size : " << this->interpreter->outputs().size() << endl;
+    cout << endl << endl;
+
     vector<int32_t> vector = this->interpreter->inputs();
     cout << "[Model Input Info]" << endl;
     cout << "data : ";
     printVector(vector);
     for (int i=0;i < vector.size();i++){
       cout << i+1 << ". ";
-      cout <<"name : "<< this->interpreter->GetInputName(i) << " / ";
+      cout << "name : "<< this->interpreter->GetInputName(i) << " / ";
       auto* tensor = this->interpreter->input_tensor(i);
-      cout << "type : " << tensor->type << endl;
+      cout << "dims data : " << printArray<float>((float*)tensor->dims->data, tensor->bytes/sizeof(float)) << " / ";
+      cout << "dims size : " << tensor->dims->size  << " / ";
+      cout << "array size : " << tensor->bytes/sizeof(float) << " / ";
+      cout << "bytes : " << tensor->bytes << " / ";
+      cout << "type : " << TfLiteTypeGetName(tensor->type)  << " / ";
     }
     cout << endl << endl;
 
@@ -190,7 +225,8 @@ void hTrafficDicisionModel::printModelInOutInfo(void){
       cout << i+1 << ". ";
       cout << "name : " << this->interpreter->GetOutputName(i) << " / ";
       auto* tensor = this->interpreter->output_tensor(i);
-      cout << "type : " << tensor->type << endl;
+      cout << "type : " << TfLiteTypeGetName(tensor->type) << endl;
+      
     }
     cout << endl << endl;
 }

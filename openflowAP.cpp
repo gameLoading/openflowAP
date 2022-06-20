@@ -12,6 +12,7 @@
 #include "AI/tfLiteModel.h"
 #include "tools/mycppTools.h"
 #include <iostream>
+#include <queue>
 
 #define FILENAME "openflowAP.c"
 
@@ -46,7 +47,8 @@ void* wireless_poll_func(void *p){
     hTrafficDicisionModel *model = (hTrafficDicisionModel*)p;
     model->printModelInOutInfo();
 
-    tuple<float, float, float, float, float, float> buffer;
+    float buffer[6];
+    deque<float> q;
     // model->setInputData();
     // model->invoke();
     // model->getOutputData();
@@ -54,8 +56,14 @@ void* wireless_poll_func(void *p){
     while(1)
     {
         printTime();
-        model->makeInputData(&buffer);
-        sleep(5);  
+        model->makeInputData(buffer);
+        model->setInputData(buffer);
+        model->invoke();
+        float value = model->getOutputData();
+        q.push_front(value >= 0.1 ? 1 : 0);
+        if (q.size() == 4) q.pop_back();
+        printQueue(q);
+        sleep(10);
     }
     return 0;
 }
