@@ -295,6 +295,19 @@ void getFreqSurveyInfo(char *deviceName, char buf[], int buf_len) {
 	systemEx_oneline((char *)cmd, buf, buf_len);
 }
 
+
+void getSystemBoard(char *deviceName, char buf[], int buf_len){
+	char cmd[MAX_JSON_SIZE] = "";
+	sprintf(cmd, "ubus -S call system board");
+	systemEx_oneline((char *)cmd, buf, buf_len);
+}
+
+void getSystemInfo(char *deviceName, char buf[], int buf_len){
+	char cmd[MAX_JSON_SIZE] = "";
+	sprintf(cmd, "ubus -S call system info");
+	systemEx_oneline((char *)cmd, buf, buf_len);
+}
+
 void setTxPower(char *deviceName, int txpower){
 	char cmd[MAX_JSON_SIZE] = "";
 	sprintf(cmd, "iw dev %s set txpower fixed %d", deviceName, txpower);

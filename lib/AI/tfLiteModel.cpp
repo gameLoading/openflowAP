@@ -13,6 +13,7 @@
 #include <cstdint>
 #include "tools/mycppTools.h"
 #include "wireless/wdev.h"
+#include "tools/mystrTools.h"
 #include "tensorflow/lite/kernels/register.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/interpreter_builder.h"
@@ -51,8 +52,7 @@ int hTrafficDicisionModel::initAIModel(const std::string modelPath, const std::s
 }
 
 void hTrafficDicisionModel::collectRawData(
-  map<string, tuple<uint32_t, uint32_t>> *map){
-    int host_count;
+  map<string, tuple<int64_t, int64_t>> *map, int* host_count){
     char buffer[MAX_JSON_SIZE];
   
     Json::Value root, result, host;
@@ -71,12 +71,12 @@ void hTrafficDicisionModel::collectRawData(
     try {
       if (root.isMember("results")){
           result = root.get("results", "");
-          host_count = result.size();
-          if (host_count == 0) return;
-          for (int i=0;i < host_count;i++){
+          *host_count = result.size();
+          if (*host_count == 0) return;
+          for (int i=0;i < *host_count;i++){
             host = result[i];
             // cout << host.toStyledString() << endl;
-            (*map)[host["mac"].asString()] = tuple<uint32_t, uint32_t>(host["tx"]["bytes"].asUInt(), host["tx"]["packets"].asUInt());
+            (*map)[host["mac"].asString()] = tuple<int64_t, int64_t>(host["tx"]["bytes"].asLargestInt(), host["tx"]["packets"].asLargestInt());
             // cout << "key : " << host["mac"].asString() << " / value : "<< get<0>((*map)[host["mac"].asString()]) << endl;
           }
       }
@@ -85,19 +85,18 @@ void hTrafficDicisionModel::collectRawData(
     }
 }
 
-int hTrafficDicisionModel::makeInputData(float *buffer){
+int hTrafficDicisionModel::makeInputData(model_input_type *buffer, int *host_count){
     // buffer->clear();
-    map<string, tuple<uint32_t, uint32_t>> map;
-    collectRawData(&map);
+    map<string, tuple<int64_t, int64_t>> map;
+    this->collectRawData(&map, host_count);
 
     if (this->prevData.empty()){
-        this->prevData.clear();
         this->prevData.insert(map.begin(), map.end());
         return -1;
     }
 
-    vector<uint32_t> tx_packets;
-    vector<uint32_t> tx_bytes;
+    vector<int64_t> tx_packets;
+    vector<int64_t> tx_bytes;
 
     for (auto iter_cur : map){
       for (auto iter_prev : this->prevData){
@@ -108,32 +107,42 @@ int hTrafficDicisionModel::makeInputData(float *buffer){
       }
       // cout << iter.first.c_str() << " / " << get<0>(iter.second) << endl;
     }
-
-    float bytes_max = max_v<uint32_t>(tx_bytes);
-    float bytes_min = min_v<uint32_t>(tx_bytes);
-    float bytes_mean =  mean_v<uint32_t>(tx_bytes);
-    float packets_max = max_v<uint32_t>(tx_packets);
-    float packets_min =  min_v<uint32_t>(tx_packets);
-    float packets_mean = mean_v<uint32_t>(tx_packets);
-
-    // cout << "tx_bytes : ";
-    // printVector(tx_bytes);
-    printf("%-15s : %15s\n","bytes_min", to_string((unsigned int)bytes_min).c_str());
-    printf("%-15s : %15s\n","bytes_mean", to_string((unsigned int)bytes_mean).c_str());
-    printf("%-15s : %15s\n","bytes_max", to_string((unsigned int)bytes_max).c_str());
-    printf("%-15s : %15s\n","packets_min", to_string((unsigned int)packets_min).c_str());
-    printf("%-15s : %15s\n","packets_mean", to_string((unsigned int)packets_mean).c_str());
-    printf("%-15s : %15s\n","packets_max", to_string((unsigned int)packets_max).c_str());
-
-    float arr[6] = {bytes_min, bytes_mean, bytes_max, packets_min, packets_mean, packets_max};
-    memcpy(buffer, arr, sizeof(float)*6);
-
+    
     this->prevData.clear();
     this->prevData.insert(map.begin(), map.end());
+
+    model_input_type bytes_max = max_v<int64_t>(tx_bytes);
+    model_input_type bytes_min = min_v<int64_t>(tx_bytes);
+    model_input_type bytes_mean = mean_v<int64_t>(tx_bytes);
+    model_input_type packets_max = max_v<int64_t>(tx_packets);
+    model_input_type packets_min =  min_v<int64_t>(tx_packets);
+    model_input_type packets_mean = mean_v<int64_t>(tx_packets);
+
+    model_input_type arr[6] = {bytes_min, bytes_mean, bytes_max, packets_min, packets_mean, packets_max};
+    memcpy(buffer, arr, sizeof(model_input_type)*6);
     return 0;
 }
 
-int hTrafficDicisionModel::setInputData(float *arr){
+void hTrafficDicisionModel::printData(model_input_type *arr, int host_count){
+    if((arr+5)==0) return;
+    model_input_type bytes_min = arr[0];
+    model_input_type bytes_mean = arr[1];
+    model_input_type bytes_max = arr[2];
+    model_input_type packets_min = arr[3];
+    model_input_type packets_mean = arr[4];
+    model_input_type packets_max = arr[5];
+    
+    cout << "host count : " << host_count << endl;
+    printf("%-15s : %15s\n","bytes_min", number2comma((long)bytes_min));
+    printf("%-15s : %15s\n","bytes_mean",  number2comma((long)bytes_mean));
+    printf("%-15s : %15s\n","bytes_max",  number2comma((long)bytes_max));
+    printf("%-15s : %15s\n","packets_min",  number2comma((long)packets_min));
+    printf("%-15s : %15s\n","packets_mean",  number2comma((long)packets_mean));
+    printf("%-15s : %15s\n","packets_max",  number2comma((long)packets_max));
+    cout << "input: " << printArray(arr, 6) << endl;
+}
+
+int hTrafficDicisionModel::setInputData(model_input_type *arr){
     if (this->interpreter == nullptr) {
       printLine();
       cout << "interpreter is null" << endl;
@@ -155,7 +164,6 @@ int hTrafficDicisionModel::setInputData(float *arr){
     arr[3] /= 4417;
     arr[4] /= 12463;
     arr[5] /= 24776;
-    cout << "input: " << printArray(arr, 6) << endl;
     memcpy(input_1, arr, sizeof(float)*6);
 
     return 0;
@@ -170,20 +178,19 @@ void hTrafficDicisionModel::invoke(void){
     this->interpreter->Invoke();
 }
 
-float hTrafficDicisionModel::getOutputData(void){
+model_output_type hTrafficDicisionModel::getOutputData(void){
     if (this->interpreter == nullptr) {
       printLine();
       cout << "interpreter is null" << endl;
       return -1;
     }
 
-    auto* output = this->interpreter->typed_output_tensor<float>(0);
+    auto* output = this->interpreter->typed_output_tensor<model_output_type>(0);
     if (!output) {
       printf("fail to get output tensor\n");
       return -1;
     }
 
-    cout << "Result is: " << *output << endl;
     return *output;
 }
 
@@ -209,9 +216,9 @@ void hTrafficDicisionModel::printModelInOutInfo(void){
       cout << i+1 << ". ";
       cout << "name : "<< this->interpreter->GetInputName(i) << " / ";
       auto* tensor = this->interpreter->input_tensor(i);
-      cout << "dims data : " << printArray<float>((float*)tensor->dims->data, tensor->bytes/sizeof(float)) << " / ";
+      cout << "dims data : " << printArray<model_input_type>((model_input_type*)tensor->dims->data, tensor->bytes/sizeof(model_input_type)) << " / ";
       cout << "dims size : " << tensor->dims->size  << " / ";
-      cout << "array size : " << tensor->bytes/sizeof(float) << " / ";
+      cout << "array size : " << tensor->bytes/sizeof(model_input_type) << " / ";
       cout << "bytes : " << tensor->bytes << " / ";
       cout << "type : " << TfLiteTypeGetName(tensor->type)  << " / ";
     }
@@ -229,4 +236,8 @@ void hTrafficDicisionModel::printModelInOutInfo(void){
       
     }
     cout << endl << endl;
+}
+
+bool hTrafficDicisionModel::can_make_delta_data(void){
+  return !this->prevData.empty();
 }

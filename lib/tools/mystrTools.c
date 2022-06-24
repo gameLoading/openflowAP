@@ -104,3 +104,24 @@ char** freeStrings(char **str, int len){
     free(str);
     return NULL;
 }
+
+const char *number2comma(long n)
+{
+    static char comma_str[128];
+    char   str[128];
+    int    idx, len, cidx = 0, mod;
+    
+    sprintf(str, "%ld", n);
+    len = strlen(str);
+    mod = len % 3;
+    
+    for(idx = 0; idx < len; idx++) {
+        if(idx != 0 && (idx) % 3 == mod) {
+            comma_str[cidx++] = ',';
+        }
+        comma_str[cidx++] = str[idx];
+    }
+    
+    comma_str[cidx] = 0x00;
+    return comma_str;
+}

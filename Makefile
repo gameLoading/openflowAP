@@ -69,12 +69,13 @@ define Build/Compile
 	$(TARGET_CXX) $(TARGET_CFLAGS) -o $(PKG_BUILD_DIR)/lib/myUnixSocketServer.o -c $(PKG_BUILD_DIR)/lib/tools/myUnixSocketServer.c
 	$(TARGET_CXX) $(TARGET_CFLAGS) -o $(PKG_BUILD_DIR)/lib/myUnixSocketCli.o -c $(PKG_BUILD_DIR)/lib/tools/myUnixSocketCli.c
 	$(TARGET_CXX) $(TARGET_CFLAGS) -o $(PKG_BUILD_DIR)/lib/wdev.o -c $(PKG_BUILD_DIR)/lib/wireless/wdev.c
+	$(TARGET_CXX) $(TARGET_CXXFLAGS) -o $(PKG_BUILD_DIR)/lib/wdev_extend.o -c $(PKG_BUILD_DIR)/lib/wireless/wdev_extend.cpp
 	$(TARGET_CXX) $(TARGET_CFLAGS) -o $(PKG_BUILD_DIR)/lib/mystrTools.o -c $(PKG_BUILD_DIR)/lib/tools/mystrTools.c
 	$(TARGET_CXX) $(TARGET_LDFLAGS) -o $(PKG_BUILD_DIR)/$1  \
 	$(PKG_BUILD_DIR)/openflowAP.o  $(PKG_BUILD_DIR)/lib/myprocess.o \
 	$(PKG_BUILD_DIR)/lib/mysemaphore.o $(PKG_BUILD_DIR)/lib/test.o $(PKG_BUILD_DIR)/lib/wdev.o \
 	$(PKG_BUILD_DIR)/lib/mystrTools.o $(PKG_BUILD_DIR)/lib/myUnixSocketCli.o $(PKG_BUILD_DIR)/lib/myleak_detector_c.o \
-	$(PKG_BUILD_DIR)/lib/myqueue.o $(PKG_BUILD_DIR)/lib/myUnixSocketServer.o  $(PKG_BUILD_DIR)/lib/tfLiteModel.o 
+	$(PKG_BUILD_DIR)/lib/myqueue.o $(PKG_BUILD_DIR)/lib/myUnixSocketServer.o  $(PKG_BUILD_DIR)/lib/tfLiteModel.o $(PKG_BUILD_DIR)/lib/wdev_extend.o
 endef
 
 # Package install instructions; create a directory inside the package to hold our executable, and then copy the executable we built previously into the folder

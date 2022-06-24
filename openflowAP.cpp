@@ -5,35 +5,49 @@
 #include <unistd.h>
 #include <sys/un.h>
 #include <string.h>
+#include <iostream>
+#include <queue>
+
 #include "tools/myprocess.h"
 #include "tools/myUnixSocketServer.h"
 #include "tools/myqueue.h"
 #include "wireless/wdev.h"
 #include "AI/tfLiteModel.h"
 #include "tools/mycppTools.h"
-#include <iostream>
-#include <queue>
+#include "wireless/wdev_extend.h"
 
 #define FILENAME "openflowAP.c"
+#define WIRELESS_POLLING_TIME_SEC 10
 
-static Queue* q;
+deque<string> cmd_queue(3);
+static wireless_controller controller;
+bool AI_CONTROLL = true;
 
-void* cmd_poll_func(void* model)
+
+void* cmd_poll_func(void* p)
 {
+    wireless_controller* controller = (wireless_controller*)p;
     while(1)
     {
-        printf("polling queue...\n");
-        int isDequeued = 0;
-        while(!isEmpty(q)) 
+        // printf("polling queue...\n");
+        bool isDequeued = false;
+        while(!cmd_queue.empty()) 
         {
-            char* data = dequeue(q);
-            printf("꺼낸거 : %s\n", data);
-            
-            if (strncmp(data, "uci", 3)==0){
-                isDequeued = 1;
-                system(data);
+            // char* data = dequeue(q);
+            string uci = cmd_queue.back();
+            cmd_queue.pop_back();
+            printf("꺼낸거 : %s\n", uci.c_str());
+            if (uci.find("uci")!= string::npos){
+                isDequeued = true;
+                if (uci.find("txpower") != string::npos){
+                    int pos = uci.find("=");
+                    string txpower_str = uci.substr(pos+1, (uci.length()-pos-1));
+                    int txpower = stoi(txpower_str);
+                    controller->set_txpower(txpower);
+                }else{
+                    system(uci.c_str());
+                }
             }
-            free(data); 
         }
         if (isDequeued) {
             system("uci commit");
@@ -41,29 +55,52 @@ void* cmd_poll_func(void* model)
         }
         sleep(5);   
     }
-}
+} 
 
 void* wireless_poll_func(void *p){
     hTrafficDicisionModel *model = (hTrafficDicisionModel*)p;
     model->printModelInOutInfo();
-
-    float buffer[6];
-    deque<float> q;
-    // model->setInputData();
-    // model->invoke();
-    // model->getOutputData();
+    model_input_type buffer[6];
+    memset(buffer, 0, sizeof(model_input_type)*6);
+    deque<int> q;
+    int host_count = 0;
 
     while(1)
     {
+        int ret = model->makeInputData(buffer, &host_count);
+        if (ret == -1){
+            cout << "wating for delta data" << endl;
+            sleep(WIRELESS_POLLING_TIME_SEC);
+            continue;
+        }
         printTime();
-        model->makeInputData(buffer);
+        model->printData(buffer, host_count);
         model->setInputData(buffer);
         model->invoke();
-        float value = model->getOutputData();
-        q.push_front(value >= 0.1 ? 1 : 0);
+        model_output_type output = model->getOutputData();
+        cout << "Result is: " << output << endl;
+        q.push_front(output >= 0.01 ? 1 : 0);
         if (q.size() == 4) q.pop_back();
         printQueue(q);
-        sleep(10);
+        if (AI_CONTROLL){
+            if (q.size() == 3 ){
+                if (q.at(0) && q.at(1) && q.at(2)){
+                    bool isSuccess = controller.up_txpower();
+                    if (isSuccess){
+                        cout << "AI detect user traffic" << endl;
+                        cout << "AI increases radio tx power" << endl;
+                    }
+                }else if((q.at(0) | q.at(1) | q.at(2)) == 0){
+                    bool isSuccess = controller.down_txpower();
+                    if (isSuccess){
+                        cout << "AI detect void time" << endl;
+                        cout << "AI reduces radio tx power" << endl;
+                    }
+                }
+            }
+        }
+        cout << "current tx power is " << controller.get_current_txpower()  << "dBm" << endl;
+        sleep(WIRELESS_POLLING_TIME_SEC);
     }
     return 0;
 }
@@ -80,9 +117,7 @@ void* cmd_input_func(void* fd)
             break;
         }
         printf("RECV-> %s\n", buf);
-        char *tmp =  (char*)malloc(sizeof(char)*strlen(buf));
-        strcpy(tmp, buf);
-        enqueue(q, tmp);
+        cmd_queue.push_front(string(buf));
         // write(sockfd, buf, strlen(buf));r
     }
     close(*sockfd);
@@ -90,14 +125,20 @@ void* cmd_input_func(void* fd)
     return 0;
 }
 
-int main(){
+int main(int argc, char* argv[]){
+    for (int i=0;i < argc;i++){
+        if (string(argv[i]).find("--nocontrol")!=string::npos){
+            AI_CONTROLL = false;
+        }
+    }
+
     hTrafficDicisionModel model;
     model.initAIModel(MODELNAME, "wlan0");
     printf("Tensorflow version : %s\n", TfLiteVersion());
-    
-    q = createQueue();
+
+    controller.init_controller("wlan0");
     pthread_t tid_cmd;
-    if (pthread_create(&tid_cmd, NULL, cmd_poll_func, &model) == -1)
+    if (pthread_create(&tid_cmd, NULL, cmd_poll_func, &controller) == -1)
     {
         perror("pthread create error.\n");
     }
@@ -109,7 +150,6 @@ int main(){
     }
 
     startServer(cmd_input_func);
-    freeQueue(q);
     return 0;
 }
 

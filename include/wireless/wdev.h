@@ -18,6 +18,8 @@ void getTxpowerList(char *deviceName, char buf[], int buf_len);
 void getCountryList(char *deviceName, char buf[], int buf_len);
 void getScannedSSIDList(char *deviceName, char buf[], int buf_len);
 void getFreqSurveyInfo(char *deviceName, char buf[], int buf_len);
+void getSystemBoard(char *deviceName, char buf[], int buf_len);
+void getSystemInfo(char *deviceName, char buf[], int buf_len);
 
 /*Managing function for Wireless Device */
 void setSSID(char *deviceName, char *ssid, int buf_len);
